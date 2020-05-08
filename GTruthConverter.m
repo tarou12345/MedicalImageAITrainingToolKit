@@ -11,6 +11,7 @@ classdef GTruthConverter
         
         numOfLabel
         numOfImages
+        LastRowOfLbelData
         
         alphaVal
     end
@@ -26,6 +27,7 @@ classdef GTruthConverter
             % 
             obj.numOfLabel = size(obj.labelDef,1);
             obj.numOfImages = size(obj.labelFiles,1);
+            obj.LastRowOfLbelData = size(obj.labelData,2); %2
             
             %
             obj.alphaVal = 0.7;
@@ -34,35 +36,33 @@ classdef GTruthConverter
             
         end
         
+        function fileName = getOriginalImageFileName(obj,frame)
+            % 原画像ファイル名の読み込み
+            fileName = cell2mat(obj.labelFiles(frame));
+        end
+        
         function I = getOriginalImage(obj,frame)
             % 原画像の読み込み
-            fileName = cell2mat(obj.labelFiles(frame));
+            fileName = obj.getOriginalImageFileName(frame);
             I = imread(fileName);
         end
         
-        function fileName = getOriginalImageFileName(obj,frame)
-            % 原画像の読み込み
-            fileName = cell2mat(obj.labelFiles(frame));
-        end
-        
         function fileName = getSegmentationFileName(obj,frame)
-            % 原画像の読み込み
-            % Todo: {frame,1} は1でよいのか？
-            fileName = cell2mat(obj.labelData{frame,1});
+            % セグメンテーションファイル名の読み込み
+            % ToDo：読み込みに失敗したときはlabelDataの何列目にあるか確認
+            fileName = cell2mat(obj.labelData{frame,obj.LastRowOfLbelData});
         end
         
         function Iseg = getSegmentationImage(obj,frame)
-            % 原画像の読み込み
-            % Todo: {frame,1} は1でよいのか？
-            fileName = cell2mat(obj.labelData{frame,1});
-            Iseg = imread(imageFile);
+            % セグメンテーションファイルの読み込み
+            fileName = obj.getSegmentationFileName(frame);
+            Iseg = imread(fileName);
         end
         
-        function Iseg = viewMontage(obj,frame)
-            imageName = cell2mat(obj.labelFiles(frame));
-            I = imread(imageName);
-            segmentName = cell2mat(obj.labelData{frame,1});
-            Iseg = imread(segmentName);
+        function viewMontage(obj,frame)
+            % モンタージュ画像の表示
+            I = obj.getOriginalImage(frame);
+            Iseg = obj.getSegmentationImage(frame);
             montage({I, Iseg*255});
             title(sprintf('frame = %d/%d, labelNum = %d',frame, obj.numOfImages ,obj.numOfLabel));
         end
@@ -72,11 +72,8 @@ classdef GTruthConverter
             colorMapVal = cell2mat(obj.labelDef.LabelColor(labelId, :));
 
             % 原画像とセグメンテーション画像の読み込み
-            % ToDo ここは呼び出しにしないとバグになりそう
-            imageName = cell2mat(obj.labelFiles(frame));
-            I = imread(imageName);
-            segmentName = cell2mat(obj.labelData{frame,1});
-            Iseg = imread(segmentName);
+            I = obj.getOriginalImage(frame);
+            Iseg = obj.getSegmentationImage(frame);
             
             % セグメントされた領域を抽出して色付け
             Ilogic = (Iseg == labelId);
