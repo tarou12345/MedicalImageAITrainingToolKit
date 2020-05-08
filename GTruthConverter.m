@@ -47,6 +47,8 @@ classdef GTruthConverter
             I = imread(fileName);
         end
         
+        %% segmentation 関係
+        
         function fileName = getSegmentationFileName(obj,frame)
             % セグメンテーションファイル名の読み込み
             % ToDo：読み込みに失敗したときはlabelDataの何列目にあるか確認
@@ -66,10 +68,15 @@ classdef GTruthConverter
             montage({I, Iseg*255});
             title(sprintf('frame = %d/%d, labelNum = %d',frame, obj.numOfImages ,obj.numOfLabel));
         end
+
+        function colorMapVal = getColorMapVal(obj, labelId)
+            % labelIdの色の取得
+            colorMapVal = cell2mat(obj.labelDef.LabelColor(labelId, :));
+        end
         
         function Ic = getFusionImage(obj,frame, labelId)
             % labelIdの色の取得
-            colorMapVal = cell2mat(obj.labelDef.LabelColor(labelId, :));
+            colorMapVal = obj.getColorMapVal(labelId);
 
             % 原画像とセグメンテーション画像の読み込み
             I = obj.getOriginalImage(frame);
@@ -93,8 +100,16 @@ classdef GTruthConverter
             Ia = I;
             Ic = (Ia .* obj.alphaVal) + (IbCombined .* (1-obj.alphaVal));
             %imshow(Ic)
-
         end
+        
+        %% Rect関係
+        function position = getRectPosition(obj,frame,rectId)
+            % セグメンテーションファイルの読み込み
+            position = cell2mat(obj.labelData{frame,rectId});
+        end
+        
+        
+        
     end
 end
 
