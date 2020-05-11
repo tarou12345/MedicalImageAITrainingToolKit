@@ -2,6 +2,9 @@ classdef GTruthConverter
     % ラベラーソフトで作ったgTruthをもとに画像を作成
     % 2020/5/8 segmentation　のみ
     % Todo : Rectの追加
+    % 
+    % 命名規則参照
+    % https://qiita.com/KeithYokoma/items/2193cf79ba76563e3db6
     
     properties
         gTruth
@@ -14,6 +17,11 @@ classdef GTruthConverter
         LastRowOfLbelData
         
         alphaVal
+        
+        segment
+        rect
+        segmentCount
+        rectCount
     end
     
     methods
@@ -27,12 +35,19 @@ classdef GTruthConverter
             % 
             obj.numOfLabel = size(obj.labelDef,1);
             obj.numOfImages = size(obj.labelFiles,1);
+            
+            % セグメント画像が記録されている列番号
             obj.LastRowOfLbelData = size(obj.labelData,2); %2
             
             %
             obj.alphaVal = 0.7;
             
-            %
+            % ToDo: 変数の渡し方に問題あり
+            A = SeparateLabelDef(gTruth);
+            obj.segment = A.segment;
+            obj.rect = A.rect
+            obj.segmentCount = A.segmentCount;
+            obj.rectCount = A.rectCount;
             
         end
         
@@ -55,6 +70,16 @@ classdef GTruthConverter
             fileName = cell2mat(obj.labelData{frame,obj.LastRowOfLbelData});
         end
         
+        function validate = validateSegmentationDirName(obj)
+            % セグメンテーションファイルを保存しているディレクトリが
+            % 現在のディレクトリと同じかどうかをチェック
+            % ToDo:　frame =1 にセグメンテーション画像がないと動作しないので修正が必要
+            frame = 1;
+            fileName = obj.getSegmentationFileName(frame);
+            currentDir = pwd;
+            validate = contains(fileName, currentDir);            
+        end
+        
         function Iseg = getSegmentationImage(obj,frame)
             % セグメンテーションファイルの読み込み
             fileName = obj.getSegmentationFileName(frame);
@@ -69,9 +94,10 @@ classdef GTruthConverter
             title(sprintf('frame = %d/%d, labelNum = %d',frame, obj.numOfImages ,obj.numOfLabel));
         end
 
-        function colorMapVal = getColorMapVal(obj, labelId)
+        function colorMapVal = getColorMapVal(obj,segmentLabelId)
             % labelIdの色の取得
-            colorMapVal = cell2mat(obj.labelDef.LabelColor(labelId, :));
+            %colorMapVal = cell2mat(obj.labelDef.LabelColor(segmentLabelId, :));
+            colorMapVal = obj.segment(segmentLabelId).colorMapVal;
         end
         
         function Ic = getFusionImage(obj,frame, labelId)
@@ -107,6 +133,7 @@ classdef GTruthConverter
             % セグメンテーションファイルの読み込み
             position = cell2mat(obj.labelData{frame,rectId});
         end
+        
         
         
         
