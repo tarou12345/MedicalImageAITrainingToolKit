@@ -17,6 +17,8 @@ classdef SeparateLabelDef
             numOfLabel = size(labelDef,1);
             segmentCount = 0;
             rectCount = 0;
+            segment = struct;
+            rect = struct;
             
             % PixellabelId の有り無しを検出
             % ToDo: なぜかexistでテーブルの列の存在を確認できない
@@ -58,7 +60,6 @@ classdef SeparateLabelDef
                     segment(segmentCount).labelId = i;
                 end
             end
-            
             
             obj.segment = segment;
             obj.rect = rect;

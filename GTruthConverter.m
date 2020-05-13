@@ -311,7 +311,7 @@ classdef GTruthConverter
         
         %% delta
         function viewPlotOfCenterDeltaList(obj, rectId)
-            list = obj.getRectCenterList(rectId);
+            list = obj.getRectCenterDeltaList(rectId);
             plot(list);
         end
         
@@ -320,7 +320,6 @@ classdef GTruthConverter
             fprintf("pixel label: %d \n",obj.segmentCount)
             fprintf("rect label: %d \n",obj.rectCount)
             fprintf("\n");
-            fprintf();
         end
         
     end
