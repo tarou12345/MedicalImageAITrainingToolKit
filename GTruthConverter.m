@@ -195,17 +195,8 @@ classdef GTruthConverter
         
             
         % rect 画像関係
-        function Iinserted = getRectInsertedImage(obj,frame,rectId)
-            position = obj.getRectPosition(frame,rectId);
-            % ToDo: 255倍しないといけない理由が不明
-            colorMapVal = obj.getRectColorMapVal(rectId) * 255;
-            I = obj.getOriginalImage(frame);
-            Iinserted = insertShape(I, ...
-                'Rectangle', position, 'LineWidth', 5, 'Color', colorMapVal);
-        end
-
         function Iinserted = getInsertRect2Image(obj,frame,rectId,I)
-            % あるframe のrectを特定の画像Iに挿入する（複数回挿入するため）
+            %「 あるframe のrect」を特定の「画像I」に挿入する（複数回挿入するため）
             position = obj.getRectPosition(frame,rectId);
             % ToDo: 255倍しないといけない理由が不明
             colorMapVal = obj.getRectColorMapVal(rectId) * 255;
@@ -213,50 +204,65 @@ classdef GTruthConverter
                 'Rectangle', position, 'LineWidth', 5, 'Color', colorMapVal);
         end
 
-        function viewRectInsertedImage(obj,frame,rectId)
-            Iinserted = obj.getRectInsertedImage(frame,rectId);
+        function Iinserted = getRectImage(obj,frame,rectId)
+            % あるframeの画像に指定したrectIdのrectを挿入　1個だけ
+            I = obj.getOriginalImage(frame);
+            Iinserted = obj.getInsertRect2Image(frame, rectId, I);
+        end
+        
+        function viewRectImage(obj,frame,rectId)
+            % 表示
+            Iinserted = obj.getRectImage(frame,rectId);
             imshow(Iinserted)
         end
-        
-        function Irect = getRectedImage(obj,frame,rectId)
-            position = obj.getRectPosition(frame,rectId);
-            I = obj.getOriginalImage(frame);
-            Irect = I(position(2):position(2) + position(4), ...
-                position(1):position(1) + position(3) );
-        end
-        
-        function viewRectedImage(obj,frame,rectId)
-            Irect = obj.getRectedImage(frame,rectId);
-            imshow(Irect)
-        end
-        
+ 
         %% 複数のrectを画像に埋め込む
-        function ImultipleRect = getMultipleRectedImage(obj, frame, rectIdList)
-            % 複数のrectを画像に入れる
+        function ImultipleRect = getMultipleRect2Image(obj, frame, rectIdList, I)
+            % 「あるframeの複数のrect」を「特定の画像」に入れる
             % rectIdList = [1 2];
-            I = obj.getOriginalImage(frame);
             for i = 1 : length(rectIdList)
                 I = obj.getInsertRect2Image(frame,rectIdList(i),I);
             end
             ImultipleRect = I;
         end
         
-        function viewMultipleRectedImage(obj, frame, rectIdList)
-            I = obj.getMultipleRectedImage(frame, rectIdList);
+        function ImultipleRect = getMultipleRectImage(obj, frame, rectIdList)
+            % 「あるframeの複数のrect」を「同じframeの画像」に入れる
+            % rectIdList = [1 2];
+            I = obj.getOriginalImage(frame);
+            ImultipleRect = obj.getMultipleRect2Image(frame, rectIdList,I);
+        end
+        
+        function viewMultipleRectImage(obj, frame, rectIdList)
+            I = obj.getMultipleRectImage(frame, rectIdList);
             imshow(I);
         end
         
-        %% center 処理
-        function [centerListCellReturn, centerDeltaListReturn] = getRectCenterListAndDelta(obj,labelId)
+        %% center List と delta の計算
+        function [centerListCellReturn, centerDeltaListReturn] = ...
+                getRectCenterListAndDelta(obj, labelId, numOfFrame)
             % ToDo: 大きすぎるので分割を　アルゴリズムも汚い
+            arguments
+                obj
+                labelId
+                numOfFrame = obj.numOfImages
+            end
+            
             numOfLine = 0; % 線の数
             stateOfLine = 0; % 前回、点があったかどうか
             centerList = []; % 線の点のリスト [x1,y1,x2,y2, ...]
             centerListCell = {}; % 線のセル {[x1,y1,..],[x2,y2,...]}
             centerListWithNull = zeros(1,2); % デバッグ用
             centerDeltaList = [];
+            
+%             if numOfFrame == 0
+%                 % numOfFrame == 0 だったらframe指定がないので最終frame
+%                 numOfFrame = obj.numOfImages;
+%             else
+%                 mumOfFrame = numOfFrame;
+%             end
 
-            for i=1:obj.numOfImages
+            for i=1:numOfFrame
                center = obj.getRectCenter(i,labelId);
                if isempty(center)
                    centerListWithNull(i,:) = [-1 -1 ];
@@ -309,60 +315,110 @@ classdef GTruthConverter
             centerDeltaListReturn = centerDeltaList;
         end
         
-        function centerDeltaList = getRectCenterDeltaList(obj,labelId)
+        function centerDeltaList = getRectCenterDeltaList(obj,labelId,numOfFrame)
+            arguments
+                obj
+                labelId
+                numOfFrame = obj.numOfImages
+            end
             % 中心座標のリストを取得
-            [~, centerDeltaList] = obj.getRectCenterListAndDelta(labelId);
+            [~, centerDeltaList] = obj.getRectCenterListAndDelta(labelId, numOfFrame);
         end
         
-        function centerList = getRectCenterList(obj,labelId)
+        function centerList = getRectCenterList(obj,labelId,numOfFrame)
+            arguments
+                obj
+                labelId
+                numOfFrame = obj.numOfImages
+            end
             % 中心座標の移動速度のリストを取得
-            [centerList, ~] = obj.getRectCenterListAndDelta(labelId);
+            [centerList, ~] = obj.getRectCenterListAndDelta(labelId, numOfFrame);
         end
         
         %% centerLine
         
-        function Iinserted = getRectCenterLine(obj,frame,rectId)
+        function Iinserted = getInsertRectCenterLine2image(obj,rectId,I,numOfFrame)
+            arguments
+                obj
+                rectId
+                I
+                numOfFrame = obj.numOfImages
+            end            
+            % 中心が移動した軌跡を「画像:I」に挿入
+            centerListCell = obj.getRectCenterList(rectId,numOfFrame);
+            colorMapVal = obj.getRectColorMapVal(rectId);
+            Iinserted = insertShape(I, ...
+                'Line', centerListCell, 'LineWidth', 5, 'Color', colorMapVal*255);
+        end
+        
+        function Iinserted = getRectCenterLine(obj,frame,rectId,numOfFrame)
+            arguments
+                obj
+                frame
+                rectId
+                numOfFrame = obj.numOfImages
+            end            
             % 中心が移動した軌跡を画像に挿入　1本だけ
             I = obj.getOriginalImage(frame);
-            centerListCell = obj.getRectCenterList(rectId);
-            colorMapVal = obj.getRectColorMapVal(rectId);
-            Iinserted = insertShape(I, ...
-                'Line', centerListCell, 'LineWidth', 5, 'Color', colorMapVal*255);
+            Iinserted = obj.getInsertRectCenterLine2image(rectId,I,numOfFrame);
         end
         
-        function Iinserted = getInsertRectCenterLine2image(obj,rectId,I)
-            % 中心が移動した軌跡を「指定した画像」に挿入　複数挿入する仕組み
-            % rect と異なりframeの指定は不要
-            centerListCell = obj.getRectCenterList(rectId);
-            colorMapVal = obj.getRectColorMapVal(rectId);
-            Iinserted = insertShape(I, ...
-                'Line', centerListCell, 'LineWidth', 5, 'Color', colorMapVal*255);
-        end
-        
-        function viewRectCenterLine(obj,frame,rectId)
+        function viewRectCenterLine(obj,frame,rectId,numOfFrame)
+            % ToDo: arguments 指定がこれほど必要なのはアルゴリズムに問題があるのか？引継ぎ法を 
+            arguments
+                obj
+                frame
+                rectId
+                numOfFrame = obj.numOfImages
+            end
             % 中心が移動した軌跡を画像に挿入して表示
-            imshow(obj.getRectCenterLine(frame,rectId))
+            imshow(obj.getRectCenterLine(frame,rectId,numOfFrame))
         end
         
         %% multi center Line
-        function ImultipleRect = getMultipleRectCenterLineImage(obj, frame, rectIdList)
+        function ImultipleRect = getMultipleRectCenterLineImage(obj, frame, rectIdList, numOfFrame)
             % 複数のrectCenterLineを画像に挿入
             % frameで指定した画像に挿入
             % 例　rectIdList = [1 2];
+            arguments
+                obj
+                frame
+                rectIdList
+                numOfFrame = obj.numOfImages
+            end
+            
             I = obj.getOriginalImage(frame);
             for i = 1 : length(rectIdList)
-                I = obj.getInsertRectCenterLine2image(rectIdList(i),I);
+                I = obj.getInsertRectCenterLine2image(rectIdList(i),I,numOfFrame);
             end
             ImultipleRect = I;
         end
         
+        %% multi で rectとcenterLineを表示
+        function Iout = getMultipleRectAndCenterLine(obj, frame, rectIdList, numOfFrame)
+            arguments
+                obj
+                frame
+                rectIdList
+                numOfFrame = obj.numOfImages
+            end
+            I = obj.getMultipleRectCenterLineImage(frame, rectIdList, numOfFrame);
+            Iout = obj.getMultipleRect2Image(frame, rectIdList, I);
+        end
+        
         %% delta
-        function viewPlotOfCenterDeltaList(obj, rectId)
-            list = obj.getRectCenterDeltaList(rectId);
+        function viewPlotOfCenterDeltaList(obj, rectId, numOfFrame)
+            arguments
+                obj
+                rectId
+                numOfFrame = obj.numOfImages
+            end
+
+            list = obj.getRectCenterDeltaList(rectId, numOfFrame);
             plot(list);
         end
         
-        %%
+        %% ステータス表示
         function dispData(obj)            % 現状を報告
             fprintf("pixel label: %d \n",obj.segmentCount)
             fprintf("rect label: %d \n",obj.rectCount)
