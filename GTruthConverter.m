@@ -45,7 +45,7 @@ classdef GTruthConverter
             % ToDo: 変数の渡し方に問題あり
             A = SeparateLabelDef(gTruth);
             obj.segment = A.segment;
-            obj.rect = A.rect
+            obj.rect = A.rect;
             obj.segmentCount = A.segmentCount;
             obj.rectCount = A.rectCount;
             
@@ -63,10 +63,33 @@ classdef GTruthConverter
         end
         
         %% segmentation 関係
+        % ラベルの定義は obj.segment
+        % ラベルのフレームごとの情報は obj.labelData
+
+        % obj.rect
+        function colorMapVal = getSegmentColorMapVal(obj,rectId)
+            % Todo: insertShapeで256倍しないといけないときがある　原因不明
+            % ToDo: cell配列の時と、そうじゃないときがある
+            colorMapVal = obj.segment(rectId).colorMapVal;
+            if iscell(colorMapVal)
+                colorMapVal = cell2mat(colorMapVal);
+            end
+        end
         
-        function fileName = getSegmentationFileName(obj,frame)
+        function name = getSegmentName(obj,rectId)
+            name = obj.segment(rectId).name;
+        end
+        
+        function name = getSegmentLabelIdAtLabelDefinition(obj,rectId)
+            name = obj.segment(rectId).labelId;
+        end
+        
+        % frameごとの処理
+        function fileName = getSegmentFileName(obj,frame)
             % セグメンテーションファイル名の読み込み
             % ToDo：読み込みに失敗したときはlabelDataの何列目にあるか確認
+            % 現在はlabelDataの最終列に存在するため LastRowOfLbelData を利用し
+            % ているが将来は変更が必要
             fileName = cell2mat(obj.labelData{frame,obj.LastRowOfLbelData});
         end
         
@@ -75,38 +98,38 @@ classdef GTruthConverter
             % 現在のディレクトリと同じかどうかをチェック
             % ToDo:　frame =1 にセグメンテーション画像がないと動作しないので修正が必要
             frame = 1;
-            fileName = obj.getSegmentationFileName(frame);
+            fileName = obj.getSegmentFileName(frame);
             currentDir = pwd;
             validate = contains(fileName, currentDir);            
         end
         
-        function Iseg = getSegmentationImage(obj,frame)
+        function Iseg = getSegmentImage(obj,frame)
             % セグメンテーションファイルの読み込み
-            fileName = obj.getSegmentationFileName(frame);
+            fileName = obj.getSegmentFileName(frame);
             Iseg = imread(fileName);
         end
         
-        function viewMontage(obj,frame)
+        function viewSegmentImage(obj,frame)
+            I = obj.getSegmentImage(frame);
+            imagesc(I)
+        end
+        
+        function viewSegmentMontage(obj,frame)
             % モンタージュ画像の表示
             I = obj.getOriginalImage(frame);
-            Iseg = obj.getSegmentationImage(frame);
+            Iseg = obj.getSegmentImage(frame);
+            % ToDo: *255は複数ラベルの時に困る
             montage({I, Iseg*255});
             title(sprintf('frame = %d/%d, labelNum = %d',frame, obj.numOfImages ,obj.numOfLabel));
         end
 
-        function colorMapVal = getColorMapVal(obj,segmentLabelId)
+        function Ic = getSegmentFusionImage(obj,frame, labelId)
             % labelIdの色の取得
-            %colorMapVal = cell2mat(obj.labelDef.LabelColor(segmentLabelId, :));
-            colorMapVal = obj.segment(segmentLabelId).colorMapVal;
-        end
-        
-        function Ic = getFusionImage(obj,frame, labelId)
-            % labelIdの色の取得
-            colorMapVal = obj.getColorMapVal(labelId);
+            colorMapVal = obj.getSegmentColorMapVal(labelId);
 
             % 原画像とセグメンテーション画像の読み込み
             I = obj.getOriginalImage(frame);
-            Iseg = obj.getSegmentationImage(frame);
+            Iseg = obj.getSegmentImage(frame);
             
             % セグメントされた領域を抽出して色付け
             Ilogic = (Iseg == labelId);
@@ -129,13 +152,171 @@ classdef GTruthConverter
         end
         
         %% Rect関係
+        % ラベルの定義は obj.rect
+        % ラベルのフレームごとの情報は obj.labelData
+        
+        % obj.rect 情報の取得
+        function colorMapVal = getRectColorMapVal(obj,rectId)
+            % Todo: insertShapeで256倍しないといけないときがある　原因不明
+            colorMapVal = obj.rect(rectId).colorMapVal;
+            if iscell(colorMapVal)
+                colorMapVal = cell2mat(colorMapVal);
+            end
+
+        end
+        
+        function name = getRectName(obj,rectId)
+            name = obj.rect(rectId).name;
+        end
+        
+        function name = getRectLabelIdAtLabelDefinition(obj,rectId)
+            name = obj.rect(rectId).labelId;
+        end
+        
+        % obj.labelData関係の読み込み
+        % ToDo: LabelIdの列番号とRectIDが一致しているときのみ動作
+        % 将来は修正が必要
+        
         function position = getRectPosition(obj,frame,rectId)
             % セグメンテーションファイルの読み込み
+            % Todo: rectIdの指定
             position = cell2mat(obj.labelData{frame,rectId});
+        end
+        
+        % position 関係
+        function center = getRectCenter(obj,frame, rectId)
+            position = obj.getRectPosition(frame, rectId);
+            if isempty(position)
+                center = [];
+            else
+            center = [position(1) + position(3)/2 , position(2) + position(4)/2 ];
+            end
+        end
+        
+            
+        % rect 画像関係
+        function Iinserted = getRectInsertedImage(obj,frame,rectId)
+            position = obj.getRectPosition(frame,rectId);
+            % ToDo: 255倍しないといけない理由が不明
+            colorMapVal = obj.getRectColorMapVal(1) * 255;
+            I = obj.getOriginalImage(frame);
+            Iinserted = insertShape(I, ...
+                'Rectangle', position, 'LineWidth', 5, 'Color', colorMapVal);
+        end
+        
+        function viewRectInsertedImage(obj,frame,rectId)
+            Iinserted = obj.getRectInsertedImage(frame,rectId);
+            imshow(Iinserted)
+        end
+        
+        function Irect = getRectedImage(obj,frame,rectId)
+            position = obj.getRectPosition(frame,rectId);
+            I = obj.getOriginalImage(frame);
+            Irect = I(position(2):position(2) + position(4), ...
+                position(1):position(1) + position(3) );
+        end
+        
+        function viewRectedImage(obj,frame,rectId)
+            Irect = obj.getRectedImage(frame,rectId);
+            imshow(Irect)
+        end
+        
+        %% center 処理
+        function [centerListCellReturn, centerDeltaListReturn] = getRectCenterListAndDelta(obj,labelId)
+            % ToDo: 大きすぎるので分割を　アルゴリズムも汚い
+            numOfLine = 0; % 線の数
+            stateOfLine = 0; % 前回、点があったかどうか
+            centerList = []; % 線の点のリスト [x1,y1,x2,y2, ...]
+            centerListCell = {}; % 線のセル {[x1,y1,..],[x2,y2,...]}
+            centerListWithNull = zeros(1,2); % デバッグ用
+            centerDeltaList = [];
+
+            for i=1:obj.numOfImages
+               center = obj.getRectCenter(i,labelId);
+               if isempty(center)
+                   centerListWithNull(i,:) = [-1 -1 ];
+                   centerDeltaList(i) = 0;
+               else
+                   centerListWithNull(i,1) = center(1);
+                   centerListWithNull(i,2) = center(2);
+                   % 点があり、前の点が存在していれば距離を計測
+                   if stateOfLine == 1
+                       centerPre = obj.getRectCenter(i-1, labelId);
+                       centerDeltaList(i) = norm(centerPre - center);
+                   else
+                       centerDeltaList(i) = 0;
+                   end
+               end
+
+               if and((stateOfLine == 0), not(isempty(center))) 
+                   % 前回「点なし」、今回「点あり」の時、新しい線の開始とみなす
+                   numOfLine = numOfLine + 1;
+                   % 1本目の線の開始以外の時に、前回の線(n-1)を記録してリストを初期化
+                   if numOfLine ~= 1
+                       if size(centerList,2)<4                  
+                           % 座標が4つ以上必要
+                           centerList = [centerList, centerList];
+                       end
+                       centerListCell(numOfLine-1) = {centerList};
+                       centerList = [];
+                   end
+               end
+
+               % 「点あり」であればcenterListに追加記録
+               if not(isempty(center))
+                   centerList = [ centerList, center];
+               end
+
+               % 「点有り：１」「点無し：０」状態を記録
+               stateOfLine = ~isempty(center);
+            end
+            
+            % 点リストが残っていればセルに追加記録
+            if ~isempty(centerList)
+               if size(centerList,2)<4                  
+                   % 座標が4つ以上必要
+                   centerList = [centerList, centerList];
+               end
+               centerListCell(numOfLine) = {centerList};
+            end
+            
+            centerListCellReturn = centerListCell;
+            centerDeltaListReturn = centerDeltaList;
+        end
+        
+        function centerDeltaList = getRectCenterDeltaList(obj,labelId)
+            % 中心座標のリストを取得
+            [~, centerDeltaList] = obj.getRectCenterListAndDelta(labelId);
+        end
+        
+        function centerList = getRectCenterList(obj,labelId)
+            % 中心座標の移動速度のリストを取得
+            [centerList, ~] = obj.getRectCenterListAndDelta(labelId);
         end
         
         
         
+        function Iinserted = getRectLine(obj,frame,rectId)
+            % 中心の移動ラインを挿入
+            I = obj.getOriginalImage(frame);
+            centerListCell = obj.getRectCenterList(rectId);
+            colorMapVal = obj.getRectColorMapVal(rectId);
+            Iinserted = insertShape(I, ...
+                'Line', centerListCell, 'LineWidth', 5, 'Color', colorMapVal*255);
+        end
+        
+        function viewRectLine(obj,frame,rectId)
+            imshow(obj.getRectLine(frame,rectId))
+        end
+        
+        
+        %%
+        function dispData(obj)            % 現状を報告
+            fprintf("pixel label: %d \n",obj.segmentCount)
+            fprintf("rect label: %d \n",obj.rectCount)
+            fprintf("\n");
+            fprintf();
+        end
         
     end
 end
