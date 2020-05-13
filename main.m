@@ -1,5 +1,7 @@
 %%
+%load('gTruthCellMoving.mat')
 load('gTruth.mat')
+
 %%
 A = GTruthConverter(gTruth);
 % B = SeparateLabelDef(gTruth);
@@ -67,3 +69,15 @@ I = A.getOriginalImage(1);
 Iinserted = insertShape(I, ...
     'Line', centerListsCell, 'LineWidth', 5, 'Color', colorMapVal*255);
 imshow(Iinserted)
+
+%% エラー処理のテスト
+a = [ 1 2 3];
+b = [ 1 2 3];
+testTable = table(a,b);
+
+try
+    tastTable.c;
+catch
+    a
+end
+

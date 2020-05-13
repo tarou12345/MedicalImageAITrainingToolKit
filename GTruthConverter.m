@@ -294,10 +294,9 @@ classdef GTruthConverter
             [centerList, ~] = obj.getRectCenterListAndDelta(labelId);
         end
         
-        
-        
+        %% center
         function Iinserted = getRectLine(obj,frame,rectId)
-            % ’†S‚ÌˆÚ“®ƒ‰ƒCƒ“‚ğ‘}“ü
+            % ’†S‚ªˆÚ“®‚µ‚½‹OÕ‚ğ‰æ‘œ‚É‘}“ü
             I = obj.getOriginalImage(frame);
             centerListCell = obj.getRectCenterList(rectId);
             colorMapVal = obj.getRectColorMapVal(rectId);
@@ -306,9 +305,15 @@ classdef GTruthConverter
         end
         
         function viewRectLine(obj,frame,rectId)
+            % ’†S‚ªˆÚ“®‚µ‚½‹OÕ‚ğ‰æ‘œ‚É‘}“ü‚µ‚Ä•\¦
             imshow(obj.getRectLine(frame,rectId))
         end
         
+        %% delta
+        function viewPlotOfCenterDeltaList(obj, rectId)
+            list = obj.getRectCenterList(rectId);
+            plot(list);
+        end
         
         %%
         function dispData(obj)            % Œ»ó‚ğ•ñ

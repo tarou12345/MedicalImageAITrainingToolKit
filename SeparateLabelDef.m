@@ -18,12 +18,25 @@ classdef SeparateLabelDef
             segmentCount = 0;
             rectCount = 0;
             
+            % PixellabelId の有り無しを検出
+            % ToDo: なぜかexistでテーブルの列の存在を確認できない
+            % 汚すぎるコードだけどエラー処理を利用して存在を確認
+%             isPixelExist = 1;
+%             try
+%                 labelDef.PixelLabelID(1);
+%             catch
+%                 isPixelExist = 0;
+%             end
+%             if isPixelExist ==0 
+%             end
+                
             % table内がセルデータであるためforループで抽出
+            % type 0 : rect
+            % type 4 : segment
+            % ToDo ： ほかのタイプ分類
             for i=1:numOfLabel
-                pixelLabelId = cell2mat(labelDef.PixelLabelID(i));
-                % pixelLabelId があるものをsegmentとみなす
-                % ToDo: 本来ならtype で分類すべきだが分類IDがわからない
-                if isempty(pixelLabelId)
+                switch labelDef.Type(i)
+                    case 0
                     rectCount = rectCount + 1;
                     colorMapVal = labelDef.LabelColor(i,:);
                     rect(rectCount).colorMapVal = colorMapVal;
@@ -31,7 +44,9 @@ classdef SeparateLabelDef
                     %rect(rectCount).colorMapVal = cell2mat(labelDef.LabelColor(i));
                     %rect(rectCount).name = cell2mat(labelDef.Name(i));
                     rect(rectCount).labelId = i;
-                else
+                    case 4
+                    % segment なら pixelLabelId があるはず
+                    pixelLabelId = cell2mat(labelDef.PixelLabelID(i));
                     segmentCount = segmentCount + 1;
                     colorMapVal = labelDef.LabelColor(i,:);
                     segment(segmentCount).colorMapVal = colorMapVal;
@@ -43,6 +58,7 @@ classdef SeparateLabelDef
                     segment(segmentCount).labelId = i;
                 end
             end
+            
             
             obj.segment = segment;
             obj.rect = rect;
