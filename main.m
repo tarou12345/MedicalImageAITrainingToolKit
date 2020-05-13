@@ -28,6 +28,17 @@ frame = 1;
 I = A.getMultipleRectImage(frame, [1 2]);
 imshow(I)
 
+%% Rectの中身
+rectId = 1;
+for frame=1:A.numOfImages
+    A.viewRectSelectedImage(frame ,rectId)
+end
+
+%% n=100 問題
+frame = 100;
+rectId = 1;
+A.viewRectSelectedImage(frame ,rectId)
+
 %% RectCenterLine
 frame = 1;
 rectId = 1;

@@ -192,7 +192,6 @@ classdef GTruthConverter
             center = [position(1) + position(3)/2 , position(2) + position(4)/2 ];
             end
         end
-        
             
         % rect 画像関係
         function Iinserted = getInsertRect2Image(obj,frame,rectId,I)
@@ -215,7 +214,23 @@ classdef GTruthConverter
             Iinserted = obj.getRectImage(frame,rectId);
             imshow(Iinserted)
         end
- 
+        
+        %% Rectの中身
+        function Iselected = getRectSelectedImage(obj,frame, rectId)
+            % 特定のframe のrect内の画像を取得する
+            position = obj.getRectPosition(frame, rectId);
+            I = obj.getOriginalImage(frame);
+            Iselected = I(position(2):position(2)+position(4) , ...
+                position(1):position(1)+position(3), :);
+        end
+        
+        function viewRectSelectedImage(obj,frame,rectId)
+            % 表示
+            I = obj.getRectSelectedImage(frame, rectId);
+            imshow(I)
+        end
+        
+        
         %% 複数のrectを画像に埋め込む
         function ImultipleRect = getMultipleRect2Image(obj, frame, rectIdList, I)
             % 「あるframeの複数のrect」を「特定の画像」に入れる
