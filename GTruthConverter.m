@@ -198,12 +198,21 @@ classdef GTruthConverter
         function Iinserted = getRectInsertedImage(obj,frame,rectId)
             position = obj.getRectPosition(frame,rectId);
             % ToDo: 255倍しないといけない理由が不明
-            colorMapVal = obj.getRectColorMapVal(1) * 255;
+            colorMapVal = obj.getRectColorMapVal(rectId) * 255;
             I = obj.getOriginalImage(frame);
             Iinserted = insertShape(I, ...
                 'Rectangle', position, 'LineWidth', 5, 'Color', colorMapVal);
         end
-        
+
+        function Iinserted = getInsertRect2Image(obj,frame,rectId,I)
+            % あるframe のrectを特定の画像Iに挿入する（複数回挿入するため）
+            position = obj.getRectPosition(frame,rectId);
+            % ToDo: 255倍しないといけない理由が不明
+            colorMapVal = obj.getRectColorMapVal(rectId) * 255;
+            Iinserted = insertShape(I, ...
+                'Rectangle', position, 'LineWidth', 5, 'Color', colorMapVal);
+        end
+
         function viewRectInsertedImage(obj,frame,rectId)
             Iinserted = obj.getRectInsertedImage(frame,rectId);
             imshow(Iinserted)
@@ -219,6 +228,22 @@ classdef GTruthConverter
         function viewRectedImage(obj,frame,rectId)
             Irect = obj.getRectedImage(frame,rectId);
             imshow(Irect)
+        end
+        
+        %% 複数のrectを画像に埋め込む
+        function ImultipleRect = getMultipleRectedImage(obj, frame, rectIdList)
+            % 複数のrectを画像に入れる
+            % rectIdList = [1 2];
+            I = obj.getOriginalImage(frame);
+            for i = 1 : length(rectIdList)
+                I = obj.getInsertRect2Image(frame,rectIdList(i),I);
+            end
+            ImultipleRect = I;
+        end
+        
+        function viewMultipleRectedImage(obj, frame, rectIdList)
+            I = obj.getMultipleRectedImage(frame, rectIdList);
+            imshow(I);
         end
         
         %% center 処理
@@ -294,9 +319,10 @@ classdef GTruthConverter
             [centerList, ~] = obj.getRectCenterListAndDelta(labelId);
         end
         
-        %% center
-        function Iinserted = getRectLine(obj,frame,rectId)
-            % 中心が移動した軌跡を画像に挿入
+        %% centerLine
+        
+        function Iinserted = getRectCenterLine(obj,frame,rectId)
+            % 中心が移動した軌跡を画像に挿入　1本だけ
             I = obj.getOriginalImage(frame);
             centerListCell = obj.getRectCenterList(rectId);
             colorMapVal = obj.getRectColorMapVal(rectId);
@@ -304,9 +330,30 @@ classdef GTruthConverter
                 'Line', centerListCell, 'LineWidth', 5, 'Color', colorMapVal*255);
         end
         
-        function viewRectLine(obj,frame,rectId)
+        function Iinserted = getInsertRectCenterLine2image(obj,rectId,I)
+            % 中心が移動した軌跡を「指定した画像」に挿入　複数挿入する仕組み
+            % rect と異なりframeの指定は不要
+            centerListCell = obj.getRectCenterList(rectId);
+            colorMapVal = obj.getRectColorMapVal(rectId);
+            Iinserted = insertShape(I, ...
+                'Line', centerListCell, 'LineWidth', 5, 'Color', colorMapVal*255);
+        end
+        
+        function viewRectCenterLine(obj,frame,rectId)
             % 中心が移動した軌跡を画像に挿入して表示
-            imshow(obj.getRectLine(frame,rectId))
+            imshow(obj.getRectCenterLine(frame,rectId))
+        end
+        
+        %% multi center Line
+        function ImultipleRect = getMultipleRectCenterLineImage(obj, frame, rectIdList)
+            % 複数のrectCenterLineを画像に挿入
+            % frameで指定した画像に挿入
+            % 例　rectIdList = [1 2];
+            I = obj.getOriginalImage(frame);
+            for i = 1 : length(rectIdList)
+                I = obj.getInsertRectCenterLine2image(rectIdList(i),I);
+            end
+            ImultipleRect = I;
         end
         
         %% delta
