@@ -22,6 +22,8 @@ classdef GTruthConverter
         rect
         segmentCount
         rectCount
+        
+        settingOfRectGreenCenter
     end
     
     methods
@@ -49,6 +51,8 @@ classdef GTruthConverter
             obj.segmentCount = A.segmentCount;
             obj.rectCount = A.rectCount;
             
+            % 設定
+            obj.settingOfRectGreenCenter = 0; % 細胞の中心
         end
         
         function fileName = getOriginalImageFileName(obj,frame)
@@ -178,8 +182,7 @@ classdef GTruthConverter
         % 将来は修正が必要
         
         function position = getRectPosition(obj,frame,rectId)
-            % セグメンテーションファイルの読み込み
-            % Todo: rectIdの指定
+            % Rectの中心
             position = cell2mat(obj.labelData{frame,rectId});
         end
         
@@ -220,6 +223,9 @@ classdef GTruthConverter
             % 特定のframe のrect内の画像を取得する
             position = obj.getRectPosition(frame, rectId);
             I = obj.getOriginalImage(frame);
+
+            % ToDo: positionを整数に変換　ここで変換するよりももっと上流で変換すべきか
+            position = round(position);
             Iselected = I(position(2):position(2)+position(4) , ...
                 position(1):position(1)+position(3), :);
         end
@@ -230,6 +236,54 @@ classdef GTruthConverter
             imshow(I)
         end
         
+        %%
+        function position = getRectGreenCellCenter(obj, frame, rectId)
+            % 
+            Irect = obj.getRectSelectedImage(frame ,rectId);
+            Ilab = rgb2lab(Irect); % labに変換
+            Ilab2 = Ilab(:,:,2); % labの2を取得（緑方向）
+            Ilab2Index = (Ilab2<0); % 0未満のインデックスを取得
+            %imshow(Ilab2Index)
+
+            % regionprops を用いて分割
+            s = regionprops(Ilab2Index);
+
+            % BoundingBox の表示確認
+            %boundingBox = [s(1).BoundingBox ; s(2).BoundingBox];
+            %Irect = insertShape(I, 'Rectangle', boundingBox, ...
+            %    'LineWidth', 5, 'Color', 'red');
+            %imshow(Irect);
+            
+            % 最大面積のBoundingBoxのindexを取得
+            % max関数で評価できるようにするために [構造体.要素] 
+            areaList = [s.Area]; 
+            [~, index] = max(areaList);
+            centroid = s(index).Centroid;
+            boundingBox = [s(index).BoundingBox]; 
+
+            % position
+            I = obj.getOriginalImage(frame); % 元画像
+            position = obj.getRectPosition(frame,rectId);
+            %  BoundingBox演算はroundされたpositionで計算されているのでround
+            position = round(position); 
+
+            % boundingBox : [x1, y1, x2, y2] -> regionprops
+            % position : [x, y, l, h ] -> insertShape
+            % centroid : [x, y] -> regionprops
+            % insertshape は position形式であるため変換が必要
+            
+            % BoundingBox座標を元の座標に変換
+            position12 = [position(1), position(2)]; 
+            centroidAtOriginal = position12 + centroid; % ToDo: positionから 中心座標は
+            boundingBoxAtOriginal = [position12 , 0 , 0 ] + boundingBox;
+            
+            % 座標確認
+            %Irect = insertShape(I, 'Rectangle', boundingBoxAtOriginal, ...
+            %    'LineWidth', 5, 'Color', 'red');
+            %imshow(Irect);
+            
+            
+        end
         
         %% 複数のrectを画像に埋め込む
         function ImultipleRect = getMultipleRect2Image(obj, frame, rectIdList, I)

@@ -34,7 +34,61 @@ for frame=1:A.numOfImages
     A.viewRectSelectedImage(frame ,rectId)
 end
 
-%% n=100 問題
+%%
+
+%% Rect内で細胞の中心を計算≒緑色領域の中心をとらえる
+% 目的：　
+% Step1 : rect内の画像を抽出
+% Step2 : LAB変換で緑領域を抽出　regionpropsを用いて細胞の中心を取得
+
+% 設定
+frame = 100;
+rectId = 1;
+
+% 
+Irect = A.getRectSelectedImage(frame ,rectId);
+Ilab = rgb2lab(Irect); % labに変換
+Ilab2 = Ilab(:,:,2); % labの2を取得（緑方向）
+Ilab2Index = (Ilab2<0); % 0未満のインデックスを取得
+imshow(Ilab2Index)
+
+% regionprops を用いて分割
+s = regionprops(Ilab2Index);
+
+% 最大面積のindexを取得
+%boundingBox = [s(1).BoundingBox ; s(2).BoundingBox];
+%Irect = insertShape(I, 'Rectangle', boundingBox, ...
+%    'LineWidth', 5, 'Color', 'red');
+%imshow(Irect);
+
+
+areaList = [s.Area]; % max関数で構造体を評価するとindexが得れないので配列に変換
+[~, index] = max(areaList);
+centroid = s(index).Centroid;
+boundingBox = [s(index).BoundingBox]; 
+
+% position
+I = A.getOriginalImage(frame); % 元画像
+position = A.getRectPosition(frame,rectId);
+position = round(position); % BoundingBox演算はround後なので同様にround
+
+% boundingBox : [x1, y1, x2, y2]
+% position : [x, y, l, h ]
+% centroid : [x, y]
+% insertshapeは position形式であるため変換が必要
+
+position12 = [position(1), position(2)]; 
+centroidAtOriginal = position12 + centroid;
+boundingBoxAtOriginal = [position12 , 0 , 0 ] + boundingBox;
+
+Irect = insertShape(I, 'Rectangle', boundingBoxAtOriginal, ...
+    'LineWidth', 5, 'Color', 'red');
+imshow(Irect);
+
+
+%%
+
+%% n=100 問題　→　解決（元の画像がまずかった）
 frame = 100;
 rectId = 1;
 A.viewRectSelectedImage(frame ,rectId)
@@ -66,7 +120,6 @@ I = A.getMultipleRect2Image(frame, rectIdList, I);
 imshow(I)
 
 %% 複数の RectCenterLine３
-% ToDo: frame = 100 の時だけ画像がおかしくなる　Iを二回評価している？
 frame = 100;
 rectIdList = [1 2];
 I = A.getMultipleRectAndCenterLine(frame, rectIdList, frame);
@@ -83,20 +136,20 @@ frame = 50;
 list = A.getRectCenterDeltaList(rectId, frame);
 plot(list)
 
-%%
-%
+%% 二画面表示　左がRectとライン　右が速度のグラフ
+% グラフを固定するためのxlim, xylimの計算
 list = A.getRectCenterDeltaList(rectId);
 xlimVal = [0,size(list,2)];
 ylimVal = [0,max(list,[],'all')*1.1]; % 最大よりも10%上
 
-%
+% 基本設定
 outputFolder = 'outFolder';
 mkdir(outputFolder);
 
 h = figure('Units','normalized','Position',[0.05 0.05 0.9 0.5],'Visible','on');
 rectIdList = [1 2];
 
-% ToDo frame = 100の時だけおかしい なぜ？
+% 二画面表示
 for frame =1 : A.numOfImages;
     subplot(1,2,1)
     I = A.getMultipleRectAndCenterLine(frame, rectIdList, frame);
@@ -112,7 +165,6 @@ for frame =1 : A.numOfImages;
 end
 
 %% 動画に変換
-% ToDo: i=100 の時にだけ画像が変になる
 
 % ビデオ書き込み設定
 outputMovieFolder = 'outMovie';
