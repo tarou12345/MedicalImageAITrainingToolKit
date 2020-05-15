@@ -23,7 +23,7 @@ classdef GTruthConverter
         segmentCount
         rectCount
         
-        settingOfRectGreenCenter
+        settingOfRectGreenCellCenter
     end
     
     methods
@@ -52,9 +52,16 @@ classdef GTruthConverter
             obj.rectCount = A.rectCount;
             
             % 設定
-            obj.settingOfRectGreenCenter = 0; % 細胞の中心
+            obj.settingOfRectGreenCellCenter = 0; % 細胞の中心
         end
         
+        %%
+        function setRectGreenCellCenter(obj, property)
+            obj.settingOfRectGreenCellCenter = property;
+        end
+        
+        
+        %% 
         function fileName = getOriginalImageFileName(obj,frame)
             % 原画像ファイル名の読み込み
             fileName = cell2mat(obj.labelFiles(frame));
@@ -180,10 +187,16 @@ classdef GTruthConverter
         % obj.labelData関係の読み込み
         % ToDo: LabelIdの列番号とRectIDが一致しているときのみ動作
         % 将来は修正が必要
+
+        function position = getRectPositionOriginal(obj,frame,rectId)
+            % ToDo：　設定による変更を許可しない　再帰問題の回避　→　失敗
+            position = cell2mat(obj.labelData{frame,rectId});
+        end
         
         function position = getRectPosition(obj,frame,rectId)
             % Rectの中心
-            position = cell2mat(obj.labelData{frame,rectId});
+            position = obj.getRectPositionOriginal(frame,rectId);
+            
         end
         
         % position 関係
@@ -236,10 +249,18 @@ classdef GTruthConverter
             imshow(I)
         end
         
-        %%
-        function position = getRectGreenCellCenter(obj, frame, rectId)
-            % 
-            Irect = obj.getRectSelectedImage(frame ,rectId);
+        function viewAllRectSelectedImage(obj, rectId)
+            for frame=1:obj.numOfImages
+                obj.viewRectSelectedImage(frame ,rectId)
+            end
+        end
+        
+        %% 緑細胞の中心座標を取得
+        
+        function positionOut = getRectGreenCellCenter(obj, frame, rectId)
+            % Rect内にある緑細胞の中心座標を取得 
+            
+            Irect = obj.getRectSelectedImage(frame,rectId);
             Ilab = rgb2lab(Irect); % labに変換
             Ilab2 = Ilab(:,:,2); % labの2を取得（緑方向）
             Ilab2Index = (Ilab2<0); % 0未満のインデックスを取得
@@ -262,7 +283,7 @@ classdef GTruthConverter
             boundingBox = [s(index).BoundingBox]; 
 
             % position
-            I = obj.getOriginalImage(frame); % 元画像
+            %I = obj.getOriginalImage(frame); % 元画像
             position = obj.getRectPosition(frame,rectId);
             %  BoundingBox演算はroundされたpositionで計算されているのでround
             position = round(position); 
@@ -282,9 +303,9 @@ classdef GTruthConverter
             %    'LineWidth', 5, 'Color', 'red');
             %imshow(Irect);
             
-            
+            positionOut = boundingBoxAtOriginal;
         end
-        
+                
         %% 複数のrectを画像に埋め込む
         function ImultipleRect = getMultipleRect2Image(obj, frame, rectIdList, I)
             % 「あるframeの複数のrect」を「特定の画像」に入れる

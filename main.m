@@ -30,9 +30,7 @@ imshow(I)
 
 %% Rectの中身
 rectId = 1;
-for frame=1:A.numOfImages
-    A.viewRectSelectedImage(frame ,rectId)
-end
+A.viewAllRectSelectedImage(rectId)
 
 %%
 
@@ -45,41 +43,43 @@ end
 frame = 100;
 rectId = 1;
 
+% % 
+% Irect = A.getRectSelectedImage(frame ,rectId);
+% Ilab = rgb2lab(Irect); % labに変換
+% Ilab2 = Ilab(:,:,2); % labの2を取得（緑方向）
+% Ilab2Index = (Ilab2<0); % 0未満のインデックスを取得
+% imshow(Ilab2Index)
 % 
-Irect = A.getRectSelectedImage(frame ,rectId);
-Ilab = rgb2lab(Irect); % labに変換
-Ilab2 = Ilab(:,:,2); % labの2を取得（緑方向）
-Ilab2Index = (Ilab2<0); % 0未満のインデックスを取得
-imshow(Ilab2Index)
+% % regionprops を用いて分割
+% s = regionprops(Ilab2Index);
+% 
+% % 最大面積のindexを取得
+% %boundingBox = [s(1).BoundingBox ; s(2).BoundingBox];
+% %Irect = insertShape(I, 'Rectangle', boundingBox, ...
+% %    'LineWidth', 5, 'Color', 'red');
+% %imshow(Irect);
+% 
+% 
+% areaList = [s.Area]; % max関数で構造体を評価するとindexが得れないので配列に変換
+% [~, index] = max(areaList);
+% centroid = s(index).Centroid;
+% boundingBox = [s(index).BoundingBox]; 
+% 
+% % position
+% I = A.getOriginalImage(frame); % 元画像
+% position = A.getRectPosition(frame,rectId);
+% position = round(position); % BoundingBox演算はround後なので同様にround
+% 
+% % boundingBox : [x1, y1, x2, y2]
+% % position : [x, y, l, h ]
+% % centroid : [x, y]
+% % insertshapeは position形式であるため変換が必要
+% 
+% position12 = [position(1), position(2)]; 
+% centroidAtOriginal = position12 + centroid;
+% boundingBoxAtOriginal = [position12 , 0 , 0 ] + boundingBox;
 
-% regionprops を用いて分割
-s = regionprops(Ilab2Index);
-
-% 最大面積のindexを取得
-%boundingBox = [s(1).BoundingBox ; s(2).BoundingBox];
-%Irect = insertShape(I, 'Rectangle', boundingBox, ...
-%    'LineWidth', 5, 'Color', 'red');
-%imshow(Irect);
-
-
-areaList = [s.Area]; % max関数で構造体を評価するとindexが得れないので配列に変換
-[~, index] = max(areaList);
-centroid = s(index).Centroid;
-boundingBox = [s(index).BoundingBox]; 
-
-% position
-I = A.getOriginalImage(frame); % 元画像
-position = A.getRectPosition(frame,rectId);
-position = round(position); % BoundingBox演算はround後なので同様にround
-
-% boundingBox : [x1, y1, x2, y2]
-% position : [x, y, l, h ]
-% centroid : [x, y]
-% insertshapeは position形式であるため変換が必要
-
-position12 = [position(1), position(2)]; 
-centroidAtOriginal = position12 + centroid;
-boundingBoxAtOriginal = [position12 , 0 , 0 ] + boundingBox;
+position = A.getRectGreenCellCenter(frame,rectId);
 
 Irect = insertShape(I, 'Rectangle', boundingBoxAtOriginal, ...
     'LineWidth', 5, 'Color', 'red');
@@ -143,7 +143,7 @@ xlimVal = [0,size(list,2)];
 ylimVal = [0,max(list,[],'all')*1.1]; % 最大よりも10%上
 
 % 基本設定
-outputFolder = 'outFolder';
+outputFolder = 'outFolder2GreenCell';
 mkdir(outputFolder);
 
 h = figure('Units','normalized','Position',[0.05 0.05 0.9 0.5],'Visible','on');
