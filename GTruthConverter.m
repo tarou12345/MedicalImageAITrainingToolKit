@@ -79,24 +79,30 @@ classdef GTruthConverter
         % segmentの定義は obj.segment
         % segmentのファイル情報は obj.labelData
 
-        function colorMapVal = getSegmentColorMapVal(obj,rectId)
+        function colorMapVal = getSegmentColorMapVal(obj,labelId)
             % segment 色の取得
             % Todo: insertShapeで256倍しないといけないときがある　条件を調べるべき
             % ToDo: cell配列の時と、そうじゃないときがある
-            colorMapVal = obj.segment(rectId).colorMapVal;
+            colorMapVal = obj.segment(labelId).colorMapVal;
             if iscell(colorMapVal)
                 colorMapVal = cell2mat(colorMapVal);
             end
         end
         
-        function name = getSegmentName(obj,rectId)
+        function colorMapVal8bit = getSegmentColorMapValAs8bit(obj,labelId)
+            % 明示的に8bitとして取得
+            colorMapVal = obj.getSegmentColorMapVal(labelId);
+            colorMapVal8bit = uint8(colorMapVal *255);
+        end        
+        
+        function name = getSegmentName(obj,labelId)
             % segment名の取得
-            name = obj.segment(rectId).name;
+            name = obj.segment(labelId).name;
         end
         
-        function name = getSegmentLabelIdAtLabelDefinition(obj,rectId)
+        function name = getSegmentLabelIdAtLabelDefinition(obj,labelId)
             % segmentId の取得
-            name = obj.segment(rectId).labelId;
+            name = obj.segment(labelId).labelId;
         end
         
         function fileName = getSegmentFileName(obj,frame)
@@ -132,12 +138,41 @@ classdef GTruthConverter
             % モンタージュ画像の表示
             I = obj.getOriginalImage(frame);
             Iseg = obj.getSegmentImage(frame);
-            % ToDo: *255は複数ラベルの時に困る
+            % ToDo: *255して飽和させて表示
             montage({I, Iseg*255});
             title(sprintf('frame = %d/%d, labelNum = %d',frame, obj.numOfImages ,obj.numOfLabel));
         end
         
-        %% segmentId ごとの処理
+        %% segmentImage 全体の可視化
+        function Iout = getSegmentIndexColorImage(obj,frame)
+            % segment ごとに色分けした画像 すべてのsegmentを作成
+            I = obj.getSegmentImage(frame); % indexの2d
+            I3 = uint8(zeros(size(I,1),size(I,2),3));
+
+            for i=1:obj.segmentCount
+                colorMapVal = obj.getSegmentColorMapValAs8bit(i); % 整数化した色の取得
+                Iid = uint8(I == i);
+                Imixed = obj.mixLogicalImageAndColorMapVal(Iid, colorMapVal);
+                I3 = I3 + Imixed;
+            end
+            Iout = I3;
+        end
+        
+        function viewSegmentIndexColorImage(obj,frame)
+            % segment ごとに色分けした画像 すべてのsegmentを表示
+            imshow(obj.getSegmentIndexColorImage(frame));
+        end
+        
+        function Iout = mixLogicalImageAndColorMapVal(obj,Ilogical, colorMapVal)
+            % [0-1]のロジカル画像にcolorMapValで指定した色を付ける
+            Iid = uint8(Ilogical);
+            Icolor(:,:,1) = Iid * colorMapVal(1);
+            Icolor(:,:,2) = Iid * colorMapVal(2);
+            Icolor(:,:,3) = Iid * colorMapVal(3);
+            Iout = Icolor;
+        end
+        
+        %% segment: segmentId ごとの処理
         
         function Ilogical = getSegmentLogicalOfSegmentId(obj, frame, segmentId)
             % frameで指定した segment における特定のsegmentId の領域だけを取得
@@ -151,7 +186,31 @@ classdef GTruthConverter
             s = regionprops(obj.getSegmentLogicalOfSegmentId(frame, segmentId));
         end
         
+        function Itext = insertSegmentLabelName(obj, frame, segmentId, I)
+            % ラベル名を画像Iに挿入　ラベル名、場所を自動的に
+            colorMapVal = obj.getSegmentColorMapValAs8bit(segmentId);
+            labelName = obj.getSegmentName(segmentId);
+            s = obj.getSegmentLogicalRegionCrops(frame, segmentId);
+            position = s.Centroid; % 中心部
+            
+            Itext = insertText(I, position, labelName, 'BoxColor', colorMapVal);
+        end
         
+        function Iout = getSingleSegmentImageWithColor(obj, frame, segmentId)
+            % segment 画像を取得して labelの色に変換
+            Ilogical = obj.getSegmentLogicalOfSegmentId(frame, segmentId);
+            colorMapVal = obj.getSegmentColorMapValAs8bit(segmentId);
+            I = obj.mixLogicalImageAndColorMapVal(Ilogical, colorMapVal);
+            Iout = I;
+            %Iout = A.insertSegmentLabelName(frame, segmentId, I);
+        end
+        
+        function Iout = insertSegmentImageWithColor(obj, frame, segmentId, I)
+            % labelの色に変換した segment 画像を 入力した画像に追加 
+            Isegment = obj.getSingleSegmentImageWithColor(frame, segmentId);
+            Iout = Isegment + I;
+            %Iout = A.insertSegmentLabelName(frame, segmentId, I);
+        end
         
         %% segment 合成
         
@@ -218,7 +277,8 @@ classdef GTruthConverter
         
         % obj.rect 情報の取得
         function colorMapVal = getRectColorMapVal(obj,rectId)
-            % Todo: insertShapeで256倍しないといけないときがある　原因不明
+            % Todo: insertShapeで255倍しないといけないときがある
+            % [0-1]なのか[0-255]なのか判定して統一するべき
             colorMapVal = obj.rect(rectId).colorMapVal;
             if iscell(colorMapVal)
                 colorMapVal = cell2mat(colorMapVal);

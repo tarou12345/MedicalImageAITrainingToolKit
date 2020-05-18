@@ -21,14 +21,15 @@ A.viewMultipleSegmentFusionImage(frame,segmentIdList);
 
 %% 文字の挿入 ＝＝途中＝＝
 frame = 1;
-labelId = 1;
+segmentId = 2;
 
 %
-I = A.getSegmentImage(frame);
+Ilogical = A.getSegmentLogicalOfSegmentId(frame, segmentId);
+%I = A.getSegmentIndexColorImage(frame);
 
 %
-colorMapVal = A.getSegmentColorMapVal(labelId)*255;
-labelName = A.getSegmentName(labelId);
+colorMapVal = A.getSegmentColorMapVal(segmentId)*255;
+labelName = A.getSegmentName(segmentId);
 s = A.getSegmentLogicalRegionCrops(frame, segmentId);
 
 %position = s.Centroid; % 中心部
@@ -37,6 +38,32 @@ position = [s.BoundingBox(1) + s.BoundingBox(3), s.BoundingBox(2) + s.BoundingBo
 
 Itext = insertText(uint8(Ilogical)*255, position, labelName, 'BoxColor', colorMapVal);
 imshow(Itext)
+
+%% segment のImagesc 的な画像を取得するメソッド
+frame = 1;
+A.viewSegmentIndexColorImage(frame)
+
+%% segment 複数のsegmentId 画像を抽出
+frame = 1;
+segmentIdA = 1;
+I = A.getSingleSegmentImageWithColor(frame, segmentIdA);
+imshow(I)
+
+%% segment 特定のsegmentId 画像を抽出
+frame = 1;
+segmentIdA = 1;
+segmentIdB = 2;
+I = A.getSingleSegmentImageWithColor(frame, segmentIdA);
+I = A.insertSegmentImageWithColor(frame, segmentIdB, I);
+imshow(I)
+
+%% segment 特定のsegmentId 画像を抽出しラベルのテキストを挿入
+frame = 1;
+segmentId = 1;
+
+I = A.getSingleSegmentImageWithColor(frame, segmentId);
+Ii = A.insertSegmentLabelName(frame, segmentId, I);
+imshow(Ii)
 
 %% 動画を４Dに読み込み
 % メモリ問題で失敗
