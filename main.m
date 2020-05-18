@@ -1,18 +1,42 @@
 %%
 clear
 
-%%
-load('gTruthCellMoving.mat')
-%load('gTruth.mat')
+%% gTruth 読み込み
+%load('gTruthCellMoving.mat')
+load('gTruth.mat')
 
 %%
 A = GTruthConverter(gTruth);
 % B = SeparateLabelDef(gTruth);
 
-%%
-% セグメント
+%% 単一セグメント
+frame = 1;
+labelId = 1;
+A.viewSegmentFusionImage(frame,labelId)
 
-imshow(A.getSegmentFusionImage(1,1))
+%% 複数セグメント
+frame = 1;
+segmentIdList = [1 2];
+A.viewMultipleSegmentFusionImage(frame,segmentIdList);
+
+%% 文字の挿入 ＝＝途中＝＝
+frame = 1;
+labelId = 1;
+
+%
+I = A.getSegmentImage(frame);
+
+%
+colorMapVal = A.getSegmentColorMapVal(labelId)*255;
+labelName = A.getSegmentName(labelId);
+s = A.getSegmentLogicalRegionCrops(frame, segmentId);
+
+%position = s.Centroid; % 中心部
+%position = [s.BoundingBox(1), s.BoundingBox(2)]; % 左上
+position = [s.BoundingBox(1) + s.BoundingBox(3), s.BoundingBox(2) + s.BoundingBox(4)]; % 右下
+
+Itext = insertText(uint8(Ilogical)*255, position, labelName, 'BoxColor', colorMapVal);
+imshow(Itext)
 
 %% 動画を４Dに読み込み
 % メモリ問題で失敗
@@ -40,46 +64,11 @@ A.viewAllRectSelectedImage(rectId)
 % Step2 : LAB変換で緑領域を抽出　regionpropsを用いて細胞の中心を取得
 
 % 設定
-frame = 100;
-rectId = 1;
+frame = 2;
+rectId = 2;
 
-% % 
-% Irect = A.getRectSelectedImage(frame ,rectId);
-% Ilab = rgb2lab(Irect); % labに変換
-% Ilab2 = Ilab(:,:,2); % labの2を取得（緑方向）
-% Ilab2Index = (Ilab2<0); % 0未満のインデックスを取得
-% imshow(Ilab2Index)
-% 
-% % regionprops を用いて分割
-% s = regionprops(Ilab2Index);
-% 
-% % 最大面積のindexを取得
-% %boundingBox = [s(1).BoundingBox ; s(2).BoundingBox];
-% %Irect = insertShape(I, 'Rectangle', boundingBox, ...
-% %    'LineWidth', 5, 'Color', 'red');
-% %imshow(Irect);
-% 
-% 
-% areaList = [s.Area]; % max関数で構造体を評価するとindexが得れないので配列に変換
-% [~, index] = max(areaList);
-% centroid = s(index).Centroid;
-% boundingBox = [s(index).BoundingBox]; 
-% 
-% % position
-% I = A.getOriginalImage(frame); % 元画像
-% position = A.getRectPosition(frame,rectId);
-% position = round(position); % BoundingBox演算はround後なので同様にround
-% 
-% % boundingBox : [x1, y1, x2, y2]
-% % position : [x, y, l, h ]
-% % centroid : [x, y]
-% % insertshapeは position形式であるため変換が必要
-% 
-% position12 = [position(1), position(2)]; 
-% centroidAtOriginal = position12 + centroid;
-% boundingBoxAtOriginal = [position12 , 0 , 0 ] + boundingBox;
-
-position = A.getRectGreenCellCenter(frame,rectId);
+I = A.getOriginalImage(frame);
+[boundingBoxAtOriginal, centroidAtOriginal] = A.getRectGreenCellCenter(frame,rectId);
 
 Irect = insertShape(I, 'Rectangle', boundingBoxAtOriginal, ...
     'LineWidth', 5, 'Color', 'red');
@@ -136,10 +125,64 @@ frame = 50;
 list = A.getRectCenterDeltaList(rectId, frame);
 plot(list)
 
+%% 
+
+% rectId のリスト
+rectIdList = [A.rect.labelId];
+
+% frame=1 の時のみ
+for i = 1:A.rectCount
+    rectId = rectIdList(i);
+    
+    % postの初期化
+    [~, centroidAtOriginal] = A.getRectGreenCellCenter(1,rectId);
+    postCentroidAtOriginal = centroidAtOriginal;
+
+    for frame =1 : A.numOfImages
+        [boundingBoxAtOriginal, centroidAtOriginal] = A.getRectGreenCellCenter(frame,rectId);
+        preCentroidAtOriginal = postCentroidAtOriginal;
+        postCentroidAtOriginal = centroidAtOriginal;
+
+        % 速度計測
+        listRectGreenCellCenterDelta(frame,rectId) = ...
+            norm(postCentroidAtOriginal - preCentroidAtOriginal);
+        
+        listRectGreenCellLine(rectId, (2*frame)-1) = centroidAtOriginal(1);
+        listRectGreenCellLine(rectId, (2*frame)) = centroidAtOriginal(2);
+        
+        %
+        disp(frame)
+    end
+end
+
+xNum = A.numOfImages;
+plot([1:xNum], listRectGreenCellCenterDelta(:,1), ...
+    [1:xNum], listRectGreenCellCenterDelta(:,2))
+
+listSmoothed(:,1) = smooth(listRectGreenCellCenterDelta(:,1));
+listSmoothed(:,2) = smooth(listRectGreenCellCenterDelta(:,2));
+plot([1:xNum], listSmoothed(:,1), ...
+    [1:xNum], listSmoothed(:,2))
+
+%
+% figure
+% I = A.getOriginalImage(1);
+% Iline = insertShape(I, 'Line', listRectGreenCellLine', ...
+%     'LineWidth', 5, 'color', 'red');
+% imshow(Iline)
+
 %% 二画面表示　左がRectとライン　右が速度のグラフ
+%
+rectIdList = [1 2];
+
+% 速度を取得
+list = A.getRectCenterDeltaList(rectId); %
+
+% greenCellCenter を用いて中心速度
+
 % グラフを固定するためのxlim, xylimの計算
-list = A.getRectCenterDeltaList(rectId);
-xlimVal = [0,size(list,2)];
+xNum = A.numOfImages;
+xlimVal = [0,xNum];
 ylimVal = [0,max(list,[],'all')*1.1]; % 最大よりも10%上
 
 % 基本設定
@@ -147,21 +190,27 @@ outputFolder = 'outFolder2GreenCell';
 mkdir(outputFolder);
 
 h = figure('Units','normalized','Position',[0.05 0.05 0.9 0.5],'Visible','on');
-rectIdList = [1 2];
 
 % 二画面表示
 for frame =1 : A.numOfImages;
+%for frame=100:100 % テスト用
     subplot(1,2,1)
     I = A.getMultipleRectAndCenterLine(frame, rectIdList, frame);
     imshow(I)
 
     subplot(1,2,2)
-    plot(list(1:frame))
+    plot([1:frame], listSmoothed(1:frame,1),'Color',A.rect(1).colorMapVal)
+    hold on
+    plot([1:frame], listSmoothed(1:frame,2),'Color',A.rect(2).colorMapVal)
+%    plot(list(1:frame))
     xlim(xlimVal);
     ylim(ylimVal);
+    title('移動速度')
+    hold off
 
     outFileName =fullfile(outputFolder,sprintf('%04d.png',frame));
     saveas(gcf, outFileName);
+    frame
 end
 
 %% 動画に変換

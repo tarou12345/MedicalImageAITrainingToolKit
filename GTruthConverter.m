@@ -24,6 +24,7 @@ classdef GTruthConverter
         rectCount
         
         settingOfRectGreenCellCenter
+        rectGreenCellCenter
     end
     
     methods
@@ -53,6 +54,7 @@ classdef GTruthConverter
             
             % 設定
             obj.settingOfRectGreenCellCenter = 0; % 細胞の中心
+            obj.rectGreenCellCenter = struct;
         end
         
         %%
@@ -74,12 +76,12 @@ classdef GTruthConverter
         end
         
         %% segmentation 関係
-        % ラベルの定義は obj.segment
-        % ラベルのフレームごとの情報は obj.labelData
+        % segmentの定義は obj.segment
+        % segmentのファイル情報は obj.labelData
 
-        % obj.rect
         function colorMapVal = getSegmentColorMapVal(obj,rectId)
-            % Todo: insertShapeで256倍しないといけないときがある　原因不明
+            % segment 色の取得
+            % Todo: insertShapeで256倍しないといけないときがある　条件を調べるべき
             % ToDo: cell配列の時と、そうじゃないときがある
             colorMapVal = obj.segment(rectId).colorMapVal;
             if iscell(colorMapVal)
@@ -88,14 +90,15 @@ classdef GTruthConverter
         end
         
         function name = getSegmentName(obj,rectId)
+            % segment名の取得
             name = obj.segment(rectId).name;
         end
         
         function name = getSegmentLabelIdAtLabelDefinition(obj,rectId)
+            % segmentId の取得
             name = obj.segment(rectId).labelId;
         end
         
-        % frameごとの処理
         function fileName = getSegmentFileName(obj,frame)
             % セグメンテーションファイル名の読み込み
             % ToDo：読み込みに失敗したときはlabelDataの何列目にあるか確認
@@ -105,8 +108,7 @@ classdef GTruthConverter
         end
         
         function validate = validateSegmentationDirName(obj)
-            % セグメンテーションファイルを保存しているディレクトリが
-            % 現在のディレクトリと同じかどうかをチェック
+            % segment ファイルが保存されているDirがカレントディレクトリにあるかどうか
             % ToDo:　frame =1 にセグメンテーション画像がないと動作しないので修正が必要
             frame = 1;
             fileName = obj.getSegmentFileName(frame);
@@ -119,8 +121,9 @@ classdef GTruthConverter
             fileName = obj.getSegmentFileName(frame);
             Iseg = imread(fileName);
         end
-        
+                           
         function viewSegmentImage(obj,frame)
+            % imagesc を利用してラベルごとに色分け表示 
             I = obj.getSegmentImage(frame);
             imagesc(I)
         end
@@ -133,13 +136,60 @@ classdef GTruthConverter
             montage({I, Iseg*255});
             title(sprintf('frame = %d/%d, labelNum = %d',frame, obj.numOfImages ,obj.numOfLabel));
         end
-
+        
+        %% segmentId ごとの処理
+        
+        function Ilogical = getSegmentLogicalOfSegmentId(obj, frame, segmentId)
+            % frameで指定した segment における特定のsegmentId の領域だけを取得
+            % 注意：　出力はlogical
+            I = obj.getSegmentImage(frame);
+            Ilogical = (I == segmentId);
+        end
+        
+        function s = getSegmentLogicalRegionCrops(obj, frame, segmentId)
+            % regionpropsでcentroidとboundingBoxとAreaを含む構造体を得る
+            s = regionprops(obj.getSegmentLogicalOfSegmentId(frame, segmentId));
+        end
+        
+        
+        
+        %% segment 合成
+        
         function Ic = getSegmentFusionImage(obj,frame, labelId)
+            % 指定frameの画像Iに labelIdのセグメントを上書き
+            I = obj.getOriginalImage(frame);
+            Ic = obj.getSegmentFusionImage2Image(frame, labelId, I);
+        end
+        
+        function viewSegmentFusionImage(obj,frame, labelId)
+            % 指定frameの画像Iに labelIdのセグメントを上書きして表示
+            I = obj.getSegmentFusionImage(frame, labelId);
+            imshow(I)
+        end
+        
+        function Ic = getMultipleSegmentFusionImage(obj, frame, segmentIdList)
+            % 複数のラベルを 指定frameの画像に上書き
+            % segmentIdList = [1,2];
+            I = obj.getOriginalImage(frame);
+            
+            for i=1:size(segmentIdList,2)
+                I = obj.getSegmentFusionImage2Image(frame,segmentIdList(i),I);
+            end
+            Ic = I;
+        end
+        
+        function viewMultipleSegmentFusionImage(obj, frame, segmentIdlist)
+            % 複数のラベルを 指定frame画像に上書きして表示
+            I = obj.getMultipleSegmentFusionImage(frame, segmentIdlist);
+            imshow(I);
+        end
+            
+        function Ic = getSegmentFusionImage2Image(obj,frame, labelId, I)
+            % 画像Iに指定frameの labelId のセグメントを上書き
             % labelIdの色の取得
             colorMapVal = obj.getSegmentColorMapVal(labelId);
 
             % 原画像とセグメンテーション画像の読み込み
-            I = obj.getOriginalImage(frame);
             Iseg = obj.getSegmentImage(frame);
             
             % セグメントされた領域を抽出して色付け
@@ -257,7 +307,8 @@ classdef GTruthConverter
         
         %% 緑細胞の中心座標を取得
         
-        function positionOut = getRectGreenCellCenter(obj, frame, rectId)
+        function [boundingBoxAtOriginal, centroidAtOriginal] = ...
+                getRectGreenCellCenter(obj, frame, rectId)
             % Rect内にある緑細胞の中心座標を取得 
             
             Irect = obj.getRectSelectedImage(frame,rectId);
@@ -303,7 +354,18 @@ classdef GTruthConverter
             %    'LineWidth', 5, 'Color', 'red');
             %imshow(Irect);
             
-            positionOut = boundingBoxAtOriginal;
+            positionGreenCellCenter = boundingBoxAtOriginal;
+            
+            % 変数の持ち出し
+            % ToDo: これはあかんやろー。
+            
+            % ToDo:　なぜかobj.に代入できない
+%             obj.rectGreenCellCenter(frame,rectId).position = position;
+%             obj.rectGreenCellCenter(frame,rectId).s = s;
+%             obj.rectGreenCellCenter(frame,rectId).index = index;
+%             obj.rectGreenCellCenter(frame,rectId).centroidAtOriginal = centroidAtOriginal;
+%             obj.rectGreenCellCenter(frame,rectId).boundingBoxAtOriginal = boundingBoxAtOriginal;
+             
         end
                 
         %% 複数のrectを画像に埋め込む
@@ -335,7 +397,7 @@ classdef GTruthConverter
             arguments
                 obj
                 labelId
-                numOfFrame = obj.numOfImages
+                numOfFrame = obj.numOfImages % 特定のframeまで取得
             end
             
             numOfLine = 0; % 線の数
