@@ -1,5 +1,7 @@
 %%
 clear
+% 機能一覧＋テスト
+% ToDo:
 
 %% gTruth 読み込み
 %load('gTruthCellMoving.mat')
@@ -9,45 +11,30 @@ load('gTruth.mat')
 A = GTruthConverter(gTruth);
 % B = SeparateLabelDef(gTruth);
 
-%% 単一セグメント
+%%
+A.disp()
+%% 元画像　＋　単一セグメント　を表示
 frame = 1;
 labelId = 1;
 A.viewSegmentFusionImage(frame,labelId)
 
-%% 複数セグメント
+%% 元画像　＋　複数セグメント　を表示
 frame = 1;
 segmentIdList = [1 2];
 A.viewMultipleSegmentFusionImage(frame,segmentIdList);
 
-%% 文字の挿入 ＝＝途中＝＝
-frame = 1;
-segmentId = 2;
-
-%
-Ilogical = A.getSegmentLogicalOfSegmentId(frame, segmentId);
-%I = A.getSegmentIndexColorImage(frame);
-
-%
-colorMapVal = A.getSegmentColorMapVal(segmentId)*255;
-labelName = A.getSegmentName(segmentId);
-s = A.getSegmentLogicalRegionCrops(frame, segmentId);
-
-%position = s.Centroid; % 中心部
-%position = [s.BoundingBox(1), s.BoundingBox(2)]; % 左上
-position = [s.BoundingBox(1) + s.BoundingBox(3), s.BoundingBox(2) + s.BoundingBox(4)]; % 右下
-
-Itext = insertText(uint8(Ilogical)*255, position, labelName, 'BoxColor', colorMapVal);
-imshow(Itext)
-
-%% segment のImagesc 的な画像を取得するメソッド
+%% 全セグメントをIDごとに色付けして表示
 frame = 1;
 A.viewSegmentIndexColorImage(frame)
 
-%% segment 複数のsegmentId 画像を抽出
+%% 特定のセグメントを抽出して色付け
 frame = 1;
-segmentIdA = 1;
-I = A.getSingleSegmentImageWithColor(frame, segmentIdA);
+segmentId = 1;
+I = A.getSingleSegmentImageWithColor(frame, segmentId);
 imshow(I)
+
+%% 特定のセグメントを抽出して色付け表示
+A.viewSingleSegmentImageWithColor(frame, segmentId)
 
 %% segment 特定のsegmentId 画像を抽出
 frame = 1;
@@ -61,9 +48,31 @@ imshow(I)
 frame = 1;
 segmentId = 1;
 
-I = A.getSingleSegmentImageWithColor(frame, segmentId);
-Ii = A.insertSegmentLabelName(frame, segmentId, I);
-imshow(Ii)
+I = A.getSinglSegmentImageWithColorAndSegmentName(frame, segmentId);
+imshow(I)
+
+%% segment 複数のsegmentId 画像を抽出しラベル名を挿入
+frame = 1;
+segmentIdA = 1;
+segmentIdB = 2;
+
+IA = A.getSinglSegmentImageWithColorAndSegmentName(frame, segmentIdA);
+IB = A.getSinglSegmentImageWithColorAndSegmentName(frame, segmentIdB);
+I = IA + IB;
+imshow(I)
+
+%% segment 複数のsegmentId 画像を抽出しラベル名を挿入
+frame = 1;
+segmentIdList = [1 2];
+I = A.getMultiplelSegmentImageWithColorAndSegmentName(frame, segmentIdList);
+imshow(I)
+
+%% 複数のsegmentId のsegmentを画像に挿入してラベル名も挿入
+frame = 1;
+segmentIdList = [1 2];
+I = A.getMultipleSegmentFusionImage(frame, segmentIdList);
+I = A.insertMultipleSegmentLabelName(frame, segmentIdList, I);
+imshow(I)
 
 %% 動画を４Dに読み込み
 % メモリ問題で失敗

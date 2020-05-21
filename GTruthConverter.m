@@ -1,7 +1,7 @@
 classdef GTruthConverter
     % ラベラーソフトで作ったgTruthをもとに画像を作成
     % 2020/5/8 segmentation　のみ
-    % Todo : Rectの追加
+    % 5/12 Rect追加
     % 
     % 命名規則参照
     % https://qiita.com/KeithYokoma/items/2193cf79ba76563e3db6
@@ -16,13 +16,16 @@ classdef GTruthConverter
         numOfImages
         LastRowOfLbelData
         
+        % 透過性の設定値
         alphaVal
         
+        % SeparateLabelDefから取得した基礎情報
         segment
         rect
         segmentCount
         rectCount
         
+        % Rect内部処理
         settingOfRectGreenCellCenter
         rectGreenCellCenter
     end
@@ -45,7 +48,7 @@ classdef GTruthConverter
             %
             obj.alphaVal = 0.7;
             
-            % ToDo: 変数の渡し方に問題あり
+            % ToDo: 設計が古臭い、もっと良い方法があるはず
             A = SeparateLabelDef(gTruth);
             obj.segment = A.segment;
             obj.rect = A.rect;
@@ -183,19 +186,77 @@ classdef GTruthConverter
         
         function s = getSegmentLogicalRegionCrops(obj, frame, segmentId)
             % regionpropsでcentroidとboundingBoxとAreaを含む構造体を得る
+            % ToDo: 複数のセグメントがあった場合の排他処理ができていない。
+            % 最大面積のsegmentだけかえす仕様に変更するべきか
             s = regionprops(obj.getSegmentLogicalOfSegmentId(frame, segmentId));
         end
         
         function Itext = insertSegmentLabelName(obj, frame, segmentId, I)
             % ラベル名を画像Iに挿入　ラベル名、場所を自動的に
-            colorMapVal = obj.getSegmentColorMapValAs8bit(segmentId);
             labelName = obj.getSegmentName(segmentId);
-            s = obj.getSegmentLogicalRegionCrops(frame, segmentId);
-            position = s.Centroid; % 中心部
-            
-            Itext = insertText(I, position, labelName, 'BoxColor', colorMapVal);
+            Itext = obj.insertTextAtSegmentCenter(frame, segmentId, I, labelName);
         end
         
+        function Itext = insertMultipleSegmentLabelName(obj, frame, segmentIdList, I)
+            % 複数のラベル名を画像Iに挿入　ラベル名、場所を自動的に
+            for i=1:size(segmentIdList,2)
+                labelName = obj.getSegmentName(segmentIdList(i));
+                I = obj.insertTextAtSegmentCenter(frame, segmentIdList(i), I, labelName);
+            end
+            Itext = I;
+        end
+        
+
+        function Itext = insertTextAtSegmentCenter(obj, frame, segmentId, I, text)
+            % segment の中心座標にテキストを挿入
+            colorMapVal = obj.getSegmentColorMapValAs8bit(segmentId);
+            position = obj.getSegmentCenter(frame, segmentId);
+            
+            Itext = insertText(I, position, text, 'BoxColor', colorMapVal);
+        end
+        
+        function Iout = getSinglSegmentImageWithColorAndSegmentName(obj, frame, segmentId)
+            % segment 色付き画像を取得して、ラベル名を挿入
+            I = obj.getSingleSegmentImageWithColor(frame, segmentId);
+            Iout = obj.insertSegmentLabelName(frame, segmentId, I);
+        end
+        
+        function Iout = getMultiplelSegmentImageWithColorAndSegmentName(obj, frame, segmentIdList)
+            % segment 色付き画像を取得して、ラベル名を挿入
+            Ipre = obj.getSinglSegmentImageWithColorAndSegmentName(frame, segmentIdList(1));
+            if size(segmentIdList,2) > 1
+                for i = 2:size(segmentIdList,2)
+                    Ipost = obj.getSinglSegmentImageWithColorAndSegmentName(frame, segmentIdList(i));
+                    Ipre = Ipre + Ipost;
+                end
+            end
+            Iout = Ipre;
+        end
+        
+        function viewMultiplelSegmentImageWithColorAndSegmentName(obj, frame, segmentIdList)
+            imshow(obj.getMultiplelSegmentImageWithColorAndSegmentName(obj, frame, segmentIdList));
+        end
+        
+        %% segment の中心座標の取得
+        function position = getSegmentCenter(obj, frame, segmentId)
+            % segmentの中心座標
+            s = obj.getSegmentLogicalRegionCrops(frame, segmentId);
+            position = s.Centroid;
+        end
+        
+        function position = getSegmentLeftTop(obj, frame, segmentId)
+            % segmentの左上座標
+            s = obj.getSegmentLogicalRegionCrops(frame, segmentId);
+            position = [s.BoundingBox(1), s.BoundingBox(2)];
+        end
+
+        function position = getSegmentRightBottom(obj, frame, segmentId)
+            % segmentの右下座標
+            s = obj.getSegmentLogicalRegionCrops(frame, segmentId);
+            position = [s.BoundingBox(1) + s.BoundingBox(3), s.BoundingBox(2)+ s.BoundingBox(4)];
+        end
+        
+        %% segment 単独IDの画像の取得
         function Iout = getSingleSegmentImageWithColor(obj, frame, segmentId)
             % segment 画像を取得して labelの色に変換
             Ilogical = obj.getSegmentLogicalOfSegmentId(frame, segmentId);
@@ -203,6 +264,14 @@ classdef GTruthConverter
             I = obj.mixLogicalImageAndColorMapVal(Ilogical, colorMapVal);
             Iout = I;
             %Iout = A.insertSegmentLabelName(frame, segmentId, I);
+        end
+        
+        function viewSingleSegmentImageWithColor(obj,frame, segmentId)
+            I = obj.getSingleSegmentImageWithColor(frame, segmentId);
+            imshow(I)
+            
+            % Todo: 関数に挿入された引数を自動で引き継いでタイトルにできないか？
+            title(sprintf("frame=%d segmentId=%d ",frame,segmentId))
         end
         
         function Iout = insertSegmentImageWithColor(obj, frame, segmentId, I)
