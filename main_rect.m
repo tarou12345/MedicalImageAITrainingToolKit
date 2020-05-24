@@ -1,82 +1,12 @@
 %%
 clear
+close all
 % 機能一覧＋テスト
 % ToDo:
 
 %% gTruth 読み込み
-%load('gTruthCellMoving.mat')
-load('gTruth.mat')
-
-%%
-A = GTruthConverter(gTruth);
-% B = SeparateLabelDef(gTruth);
-
-%%
-A.disp()
-%% 元画像　＋　単一セグメント　を表示
-frame = 1;
-labelId = 1;
-A.viewSegmentFusionImage(frame,labelId)
-
-%% 元画像　＋　複数セグメント　を表示
-frame = 1;
-segmentIdList = [1 2];
-A.viewMultipleSegmentFusionImage(frame,segmentIdList);
-
-%% 全セグメントをIDごとに色付けして表示
-frame = 1;
-A.viewSegmentIndexColorImage(frame)
-
-%% 特定のセグメントを抽出して色付け
-frame = 1;
-segmentId = 1;
-I = A.getSingleSegmentImageWithColor(frame, segmentId);
-imshow(I)
-
-%% 特定のセグメントを抽出して色付け表示
-A.viewSingleSegmentImageWithColor(frame, segmentId)
-
-%% segment 特定のsegmentId 画像を抽出
-frame = 1;
-segmentIdA = 1;
-segmentIdB = 2;
-I = A.getSingleSegmentImageWithColor(frame, segmentIdA);
-I = A.insertSegmentImageWithColor(frame, segmentIdB, I);
-imshow(I)
-
-%% segment 特定のsegmentId 画像を抽出しラベルのテキストを挿入
-frame = 1;
-segmentId = 1;
-
-I = A.getSinglSegmentImageWithColorAndSegmentName(frame, segmentId);
-imshow(I)
-
-%% segment 複数のsegmentId 画像を抽出しラベル名を挿入
-frame = 1;
-segmentIdA = 1;
-segmentIdB = 2;
-
-IA = A.getSinglSegmentImageWithColorAndSegmentName(frame, segmentIdA);
-IB = A.getSinglSegmentImageWithColorAndSegmentName(frame, segmentIdB);
-I = IA + IB;
-imshow(I)
-
-%% segment 複数のsegmentId 画像を抽出しラベル名を挿入
-frame = 1;
-segmentIdList = [1 2];
-I = A.getMultiplelSegmentImageWithColorAndSegmentName(frame, segmentIdList);
-imshow(I)
-
-%% 複数のsegmentId のsegmentを画像に挿入してラベル名も挿入
-frame = 1;
-segmentIdList = [1 2];
-I = A.getMultipleSegmentFusionImage(frame, segmentIdList);
-I = A.insertMultipleSegmentLabelName(frame, segmentIdList, I);
-imshow(I)
-
-%% 動画を４Dに読み込み
-% メモリ問題で失敗
-% movie4d = ReadMovie2Memory('cellMoving.avi');
+load('gTruthCellMoving.mat')
+%load('gTruth.mat')
 
 %% Rect 
 frame = 1;
@@ -110,13 +40,6 @@ Irect = insertShape(I, 'Rectangle', boundingBoxAtOriginal, ...
     'LineWidth', 5, 'Color', 'red');
 imshow(Irect);
 
-
-%%
-
-%% n=100 問題　→　解決（元の画像がまずかった）
-frame = 100;
-rectId = 1;
-A.viewRectSelectedImage(frame ,rectId)
 
 %% RectCenterLine
 frame = 1;
@@ -265,4 +188,3 @@ for i = 1:length(imgStore.Files)
    writeVideo(outputVideo, readimage(imgStore,i));
 end
 close(outputVideo)
-

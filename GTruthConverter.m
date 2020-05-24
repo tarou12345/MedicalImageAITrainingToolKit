@@ -19,6 +19,9 @@ classdef GTruthConverter
         % 透過性の設定値
         alphaVal
         
+        % 日本語表示のためのフォント設定
+        fontName
+        
         % SeparateLabelDefから取得した基礎情報
         segment
         rect
@@ -45,8 +48,11 @@ classdef GTruthConverter
             % セグメント画像が記録されている列番号
             obj.LastRowOfLbelData = size(obj.labelData,2); %2
             
-            %
+            % 透過性の設定
             obj.alphaVal = 0.7;
+            
+            % フォントの指定
+            obj.fontName = 'Meiryo UI';
             
             % ToDo: 設計が古臭い、もっと良い方法があるはず
             A = SeparateLabelDef(gTruth);
@@ -60,13 +66,42 @@ classdef GTruthConverter
             obj.rectGreenCellCenter = struct;
         end
         
+        %% 設定の変更 
+         % フォントの設定
+        function obj = changeFont(obj)
+            % フォントの変更
+            fontJpStruct =  uisetfont();
+            preFontName = obj.fontName;
+            obj.fontName = fontJpStruct.FontName;
+            obj.displayInCurrentFont('日本語', preFontName);
+        end
+        
+        function displayInCurrentFont(obj,textJp,preFontName)
+            % フォントの比較表示　上が現在のフォント、下が前回のフォント
+            arguments
+                obj
+                textJp = '日本語';
+                preFontName = '';
+            end
+            I = zeros(200,200,3);
+            Ia = insertText(I,[20 20], textJp, 'Font', obj.fontName);
+            Ib = insertText(Ia,[20 60], sprintf('current : %s',obj.fontName) , 'Font', obj.fontName);
+
+            if ~isempty(preFontName)
+                Ib = insertText(Ib,[20 120], textJp, 'Font', preFontName);
+                Ib = insertText(Ib,[20 160], sprintf('pre : %s', preFontName), 'Font', preFontName);                
+            end
+                       
+            imshow(Ib)
+        end
+        
         %%
-        function setRectGreenCellCenter(obj, property)
+        function obj = setRectGreenCellCenter(obj, property)
             obj.settingOfRectGreenCellCenter = property;
         end
         
         
-        %% 
+        %% 元画像
         function fileName = getOriginalImageFileName(obj,frame)
             % 原画像ファイル名の読み込み
             fileName = cell2mat(obj.labelFiles(frame));
@@ -78,6 +113,52 @@ classdef GTruthConverter
             I = imread(fileName);
         end
         
+        function viewOriginalImage(obj, frame)
+            I = obj.getOriginalImage(fram);
+            imshow(I)
+        end
+        
+        %% Title機能
+        
+        function text = titleTextFrame(obj, frame)
+            % frame番号のテキストを作成
+            text = sprintf("frame : %d/%d", frame, obj.numOfImages);
+        end
+        
+        function text = titleTextSegmentName(obj, segmentId)
+            % segment番号と名前のテキストを作成
+            text = sprintf("SegmentId : %d, LabelName : %s", ...
+                segmentId, obj.getSegmentName(segmentId));
+        end
+        
+        function titleFrame(obj,frame)
+            % frame番号のテキストをタイトルに
+            title(obj.titleTextFrame(frame))
+        end
+        
+        function titleSegmentName(obj, segmentId)
+            % segmentId とその名前をタイトルに
+            title(obj.titleTextSegmentName(segmentId))
+        end
+        
+        function titleFrameAndSegmentName(obj, frame, segmentId)
+            % frame番号と segmentIdをタイトルに
+            title(strcat(obj.titleTextFrame(frame), ", ",...
+                obj.titleTextSegmentName(segmentId)))
+        end        
+        
+        %% segment 全体可視化　色付け
+        function Iout = getSegmentAndLabelAtOriginalImage(obj,frame,segmentIdList)
+            I = obj.getMultipleSegmentFusionImage(frame, segmentIdList);
+            I = obj.insertMultipleSegmentLabelName(frame, segmentIdList, I);
+            Iout = I;
+        end
+        
+        function viewSegmentAndLabelAtOriginalImage(obj,frame,segmentIdList)
+            I = obj.getSegmentAndLabelAtOriginalImage(frame, segmentIdList);
+            imshow(I);
+        end
+                
         %% segmentation 関係
         % segmentの定義は obj.segment
         % segmentのファイル情報は obj.labelData
@@ -166,15 +247,6 @@ classdef GTruthConverter
             imshow(obj.getSegmentIndexColorImage(frame));
         end
         
-        function Iout = mixLogicalImageAndColorMapVal(obj,Ilogical, colorMapVal)
-            % [0-1]のロジカル画像にcolorMapValで指定した色を付ける
-            Iid = uint8(Ilogical);
-            Icolor(:,:,1) = Iid * colorMapVal(1);
-            Icolor(:,:,2) = Iid * colorMapVal(2);
-            Icolor(:,:,3) = Iid * colorMapVal(3);
-            Iout = Icolor;
-        end
-        
         %% segment: segmentId ごとの処理
         
         function Ilogical = getSegmentLogicalOfSegmentId(obj, frame, segmentId)
@@ -182,6 +254,15 @@ classdef GTruthConverter
             % 注意：　出力はlogical
             I = obj.getSegmentImage(frame);
             Ilogical = (I == segmentId);
+        end
+        
+        function Iout = mixLogicalImageAndColorMapVal(obj,Ilogical, colorMapVal)
+            % [0-1]のロジカル画像にcolorMapValで指定した色を付ける
+            Iid = uint8(Ilogical);
+            Icolor(:,:,1) = Iid * colorMapVal(1);
+            Icolor(:,:,2) = Iid * colorMapVal(2);
+            Icolor(:,:,3) = Iid * colorMapVal(3);
+            Iout = Icolor;
         end
         
         function s = getSegmentLogicalRegionCrops(obj, frame, segmentId)
@@ -206,13 +287,13 @@ classdef GTruthConverter
             Itext = I;
         end
         
-
         function Itext = insertTextAtSegmentCenter(obj, frame, segmentId, I, text)
-            % segment の中心座標にテキストを挿入
+            % 特定のframeの特定のsegment の中心座標にテキストを挿入
+            % 日本語に対するためにFont設定
             colorMapVal = obj.getSegmentColorMapValAs8bit(segmentId);
             position = obj.getSegmentCenter(frame, segmentId);
             
-            Itext = insertText(I, position, text, 'BoxColor', colorMapVal);
+            Itext = insertText(I, position, text, 'BoxColor', colorMapVal, 'Font', obj.fontName);
         end
         
         function Iout = getSinglSegmentImageWithColorAndSegmentName(obj, frame, segmentId)
@@ -221,7 +302,7 @@ classdef GTruthConverter
             Iout = obj.insertSegmentLabelName(frame, segmentId, I);
         end
         
-        function Iout = getMultiplelSegmentImageWithColorAndSegmentName(obj, frame, segmentIdList)
+        function Iout = getMultipleSegmentImageWithColorAndSegmentName(obj, frame, segmentIdList)
             % segment 色付き画像を取得して、ラベル名を挿入
             Ipre = obj.getSinglSegmentImageWithColorAndSegmentName(frame, segmentIdList(1));
             if size(segmentIdList,2) > 1
@@ -233,8 +314,8 @@ classdef GTruthConverter
             Iout = Ipre;
         end
         
-        function viewMultiplelSegmentImageWithColorAndSegmentName(obj, frame, segmentIdList)
-            imshow(obj.getMultiplelSegmentImageWithColorAndSegmentName(obj, frame, segmentIdList));
+        function viewMultiplSegmentImageWithColorAndSegmentName(obj, frame, segmentIdList)
+            imshow(obj.getMultipleSegmentImageWithColorAndSegmentName(frame, segmentIdList));
         end
         
         %% segment の中心座標の取得
@@ -273,20 +354,20 @@ classdef GTruthConverter
             % Todo: 関数に挿入された引数を自動で引き継いでタイトルにできないか？
             title(sprintf("frame=%d segmentId=%d ",frame,segmentId))
         end
-        
+
+        %% segment 合成
+
         function Iout = insertSegmentImageWithColor(obj, frame, segmentId, I)
             % labelの色に変換した segment 画像を 入力した画像に追加 
             Isegment = obj.getSingleSegmentImageWithColor(frame, segmentId);
             Iout = Isegment + I;
             %Iout = A.insertSegmentLabelName(frame, segmentId, I);
         end
-        
-        %% segment 合成
-        
+                
         function Ic = getSegmentFusionImage(obj,frame, labelId)
             % 指定frameの画像Iに labelIdのセグメントを上書き
             I = obj.getOriginalImage(frame);
-            Ic = obj.getSegmentFusionImage2Image(frame, labelId, I);
+            Ic = obj.insertSegmentImage2Image(frame, labelId, I);
         end
         
         function viewSegmentFusionImage(obj,frame, labelId)
@@ -301,7 +382,7 @@ classdef GTruthConverter
             I = obj.getOriginalImage(frame);
             
             for i=1:size(segmentIdList,2)
-                I = obj.getSegmentFusionImage2Image(frame,segmentIdList(i),I);
+                I = obj.insertSegmentImage2Image(frame,segmentIdList(i),I);
             end
             Ic = I;
         end
@@ -312,7 +393,7 @@ classdef GTruthConverter
             imshow(I);
         end
             
-        function Ic = getSegmentFusionImage2Image(obj,frame, labelId, I)
+        function Ic = insertSegmentImage2Image(obj,frame, labelId, I)
             % 画像Iに指定frameの labelId のセグメントを上書き
             % labelIdの色の取得
             colorMapVal = obj.getSegmentColorMapVal(labelId);
@@ -340,6 +421,43 @@ classdef GTruthConverter
             %imshow(Ic)
         end
         
+        %% 動画作成
+        
+        function makeSegmentMovie(obj, movieFileName, outputMovieFolder, ...
+                segmentIdList, endOfFrame, frameRate, movieType)
+            % ビデオ書き込み設定
+            % ToDo: 
+            arguments
+                obj
+                movieFileName = 'test2.mp4';
+                outputMovieFolder = 'outMovie';
+                segmentIdList = [1 2];
+                endOfFrame = 5; % デフォルトでは最終フレーム
+                frameRate = 5; % デフォルトでは30
+                movieType = 'MPEG-4'; % デフォルトではavi
+                %movieType = 'Motion JPEG AVI';
+            end
+            
+            % フォルダ作成
+            % 　仮の処置　上書き作成時の警告を表示しないために[~,~]
+            %   ToDo: 例外処理のアルゴリズムを
+            [~,~] = mkdir(outputMovieFolder);
+
+            % ビデオ書き込み準備
+            outputVideo = VideoWriter(fullfile(outputMovieFolder, movieFileName),movieType);
+            outputVideo.FrameRate = frameRate; % 設定の変更はopen前に
+            open(outputVideo)
+
+            % ループ
+            for frame = 1:endOfFrame
+                I = obj.getSegmentAndLabelAtOriginalImage(frame, segmentIdList);
+                writeVideo(outputVideo, I);
+            end
+
+            % ビデオ終了処理
+            close(outputVideo)
+        end
+        
         %% Rect関係
         % ラベルの定義は obj.rect
         % ラベルのフレームごとの情報は obj.labelData
@@ -352,7 +470,6 @@ classdef GTruthConverter
             if iscell(colorMapVal)
                 colorMapVal = cell2mat(colorMapVal);
             end
-
         end
         
         function name = getRectName(obj,rectId)
@@ -489,6 +606,7 @@ classdef GTruthConverter
             % ToDo: これはあかんやろー。
             
             % ToDo:　なぜかobj.に代入できない
+            % ->　戻り値にobjが入ってない　[?? ?? obj]と書くのか？実験してから。
 %             obj.rectGreenCellCenter(frame,rectId).position = position;
 %             obj.rectGreenCellCenter(frame,rectId).s = s;
 %             obj.rectGreenCellCenter(frame,rectId).index = index;
