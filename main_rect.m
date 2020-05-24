@@ -12,8 +12,8 @@ load('gTruthCellMoving.mat')
 A = GTruthConverter(gTruth);
 
 %% Rect 
-frame = 1;
-rectId = 1;
+frame = 2;
+rectId = 2;
 A.viewRectImage(frame, rectId)
 
 %% 複数のRectを画像に埋め込む
