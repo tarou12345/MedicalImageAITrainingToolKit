@@ -8,6 +8,9 @@ close all
 load('gTruthCellMoving.mat')
 %load('gTruth.mat')
 
+%%
+A = GTruthConverter(gTruth);
+
 %% Rect 
 frame = 1;
 rectId = 1;
